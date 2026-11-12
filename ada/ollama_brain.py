@@ -40,6 +40,8 @@ class OllamaBrain(BaseBrain):
             # Local models can be slow, especially on the first message while the model loads.
             timeout=httpx.Timeout(config.ollama_timeout_s, connect=10.0),
         )
+        # Some models reject the "think" option; we stop sending it if so.
+        self._send_think = True
 
     async def _call(self, messages: list) -> dict:
         payload = {
@@ -48,9 +50,19 @@ class OllamaBrain(BaseBrain):
             "tools": OLLAMA_TOOLS,
             "stream": False,
             "options": {"num_ctx": self.config.ollama_num_ctx},
+            # Keep the model loaded between messages so replies don't wait for a reload.
+            "keep_alive": self.config.ollama_keep_alive,
         }
+        if self._send_think:
+            # Thinking models (like qwen3) reason silently before answering; off = much faster.
+            payload["think"] = self.config.ollama_think
         try:
             resp = await self.http.post("/api/chat", json=payload)
+            if resp.status_code == 400 and "think" in resp.text.lower() and "think" in payload:
+                log.info("Model doesn't accept the think option; retrying without it")
+                self._send_think = False
+                payload.pop("think")
+                resp = await self.http.post("/api/chat", json=payload)
         except httpx.ConnectError:
             raise BrainError(
                 f"I couldn't reach Ollama at {self.config.ollama_url}. "

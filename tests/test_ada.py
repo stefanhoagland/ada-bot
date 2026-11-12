@@ -235,3 +235,28 @@ def test_username_instead_of_id_gives_clear_error(monkeypatch):
     monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "stefanhoagland")
     with pytest.raises(SystemExit, match="userinfobot"):
         Config.from_env()
+
+
+def test_ollama_sends_speed_options_and_drops_think_if_rejected(tmp_path):
+    sent = []
+
+    def handler(request):
+        body = _json.loads(request.content)
+        sent.append(body)
+        if "think" in body:
+            return httpx.Response(400, json={"error": "model does not support thinking"})
+        return httpx.Response(200, json={"message": {"role": "assistant", "content": "hey"}})
+
+    brain = _ollama(tmp_path, handler)
+
+    async def a(r):
+        return True
+
+    async def n(x):
+        pass
+
+    assert asyncio.run(brain.respond(Conversation(), "hi", a, n)) == "hey"
+    assert sent[0]["think"] is False and sent[0]["keep_alive"] == "30m"
+    assert "think" not in sent[1]
+    asyncio.run(brain.respond(Conversation(), "again", a, n))
+    assert "think" not in sent[2]  # remembered

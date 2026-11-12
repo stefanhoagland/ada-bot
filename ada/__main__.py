@@ -21,7 +21,8 @@ def main() -> None:
         else f"claude {config.model} effort={config.effort}",
         sorted(config.allowed_user_ids),
     )
-    AdaBot(config).build().run_polling()
+    # bootstrap_retries=-1: keep retrying if Telegram can't be reached at startup instead of crashing.
+    AdaBot(config).build().run_polling(bootstrap_retries=-1)
 
 
 if __name__ == "__main__":

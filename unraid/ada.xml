@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!-- Unraid container template for Ada. See README for how to install it. -->
+<Container version="2">
+  <Name>ada</Name>
+  <Repository>ghcr.io/stefanhoagland/ada-bot:latest</Repository>
+  <Registry>https://github.com/stefanhoagland/ada-bot/pkgs/container/ada-bot</Registry>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/stefanhoagland/ada-bot</Support>
+  <Project>https://github.com/stefanhoagland/ada-bot</Project>
+  <Overview>Ada, a personal AI assistant you chat with on Telegram. She can check and manage your server, write code, and asks before changing anything.</Overview>
+  <Category>Tools:</Category>
+  <ExtraParams>--restart=unless-stopped</ExtraParams>
+  <Config Name="Claude API key" Target="ANTHROPIC_API_KEY" Default="" Mode="" Description="From console.anthropic.com" Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Telegram bot token" Target="TELEGRAM_BOT_TOKEN" Default="" Mode="" Description="From @BotFather on Telegram" Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Your Telegram user ID" Target="TELEGRAM_ALLOWED_USER_IDS" Default="" Mode="" Description="Only this user can talk to Ada. Get it from @userinfobot." Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Time zone" Target="TZ" Default="America/New_York" Mode="" Description="" Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="Model" Target="ADA_MODEL" Default="claude-opus-5-5" Mode="" Description="Claude model Ada uses" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Effort" Target="ADA_EFFORT" Default="medium" Mode="" Description="low, medium, high: higher thinks harder and costs more" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Docker socket" Target="/var/run/docker.sock" Default="/var/run/docker.sock" Mode="rw" Description="Lets Ada see and manage your containers" Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="Workspace" Target="/workspace" Default="/mnt/user/appdata/ada/workspace" Mode="rw" Description="Ada's work folder (code projects go here)" Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="Appdata" Target="/mnt/user/appdata" Default="/mnt/user/appdata" Mode="rw" Description="Lets Ada read and edit your apps' config files" Type="Path" Display="always" Required="false" Mask="false"/>
+</Container>

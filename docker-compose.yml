@@ -1,0 +1,11 @@
+# Optional: for running Ada with docker compose instead of the Unraid template.
+services:
+  ada:
+    image: ghcr.io/stefanhoagland/ada-bot:latest
+    container_name: ada
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /mnt/user/appdata/ada/workspace:/workspace
+      - /mnt/user/appdata:/mnt/user/appdata

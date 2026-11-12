@@ -48,14 +48,24 @@ class Config:
     command_timeout_s: int = 300
     max_history_messages: int = 200
     timezone: str = "America/New_York"
+    provider: str = "claude"  # "claude" or "ollama"
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "qwen3:8b"
+    ollama_num_ctx: int = 16384
+    ollama_timeout_s: int = 600
 
     @classmethod
     def from_env(cls) -> "Config":
         token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
         if not token:
             raise SystemExit("TELEGRAM_BOT_TOKEN is not set.")
-        if not os.environ.get("ANTHROPIC_API_KEY", "").strip():
-            raise SystemExit("ANTHROPIC_API_KEY is not set.")
+        has_key = bool(os.environ.get("ANTHROPIC_API_KEY", "").strip())
+        # Default: Claude if there's an API key, otherwise the free local model.
+        provider = os.environ.get("ADA_PROVIDER", "").strip().lower() or ("claude" if has_key else "ollama")
+        if provider not in ("claude", "ollama"):
+            raise SystemExit("ADA_PROVIDER must be 'claude' or 'ollama'.")
+        if provider == "claude" and not has_key:
+            raise SystemExit("ADA_PROVIDER is 'claude' but ANTHROPIC_API_KEY is not set.")
         ids_raw = os.environ.get("TELEGRAM_ALLOWED_USER_IDS", "").strip()
         if not ids_raw:
             raise SystemExit(
@@ -74,4 +84,9 @@ class Config:
             command_timeout_s=int(os.environ.get("ADA_COMMAND_TIMEOUT", "300")),
             max_history_messages=int(os.environ.get("ADA_MAX_HISTORY", "200")),
             timezone=os.environ.get("TZ", "America/New_York"),
+            provider=provider,
+            ollama_url=os.environ.get("OLLAMA_URL", "http://localhost:11434"),
+            ollama_model=os.environ.get("OLLAMA_MODEL", "qwen3:8b"),
+            ollama_num_ctx=int(os.environ.get("OLLAMA_NUM_CTX", "16384")),
+            ollama_timeout_s=int(os.environ.get("OLLAMA_TIMEOUT", "600")),
         )

@@ -1,6 +1,6 @@
 # Ada
 
-Ada is a personal AI assistant you chat with on Telegram. She runs as a Docker container on an Unraid server and uses Claude as her brain.
+Ada is a personal AI assistant you chat with on Telegram. She runs as a Docker container on an Unraid server. Her brain is either **Claude** (paid API, smartest) or a **free local model** through Ollama.
 
 She can:
 - **Check and manage the homelab**: containers, disks, logs, system health.
@@ -9,11 +9,42 @@ She can:
 
 **She asks before changing anything.** Read-only commands (like `docker ps` or `df -h`) run right away. Anything else, such as restarting a container or writing a file, shows up in Telegram with ✅ Approve and ❌ Deny buttons and waits for you. If you don't answer within 10 minutes, the action is skipped.
 
+## Pick a brain
+
+| | Claude API | Local model (Ollama) |
+|---|---|---|
+| Cost | Pay per use, typically a few dollars a month | Free |
+| Needs | An API key | Ollama running on your server, ideally with a GPU |
+| Quality | Best at code and at using tools carefully | Good for simple tasks; weaker at code and multi-step jobs |
+
+Ada uses Claude if `ANTHROPIC_API_KEY` is set, otherwise Ollama. Set `ADA_PROVIDER` to force one.
+
 ## What you need
 
-1. **A Claude API key.** Create one at [console.anthropic.com](https://console.anthropic.com) under API Keys, and add a little credit under Billing.
+1. **A brain**: either a Claude API key from [console.anthropic.com](https://console.anthropic.com) (API Keys, plus a little credit under Billing), **or** Ollama set up as below.
 2. **A Telegram bot token.** In Telegram, message **@BotFather**, send `/newbot`, and follow the prompts (name it Ada). It gives you a token like `123456:ABC...`.
 3. **Your Telegram user ID.** Message **@userinfobot** and it replies with your numeric ID. Ada only answers this ID, so nobody else can control your server.
+
+## Set up Ollama (for the free local model)
+
+Skip this if you're using Claude.
+
+1. **GPU (recommended).** With an NVIDIA card, install the **Nvidia Driver** plugin from the Apps tab and reboot. Without a GPU it still works on the CPU, just slowly.
+2. **Install Ollama.** In the **Apps** tab search for **ollama** and install the official one (image `ollama/ollama`). For an NVIDIA GPU, add `--runtime=nvidia` to *Extra Parameters* and set `NVIDIA_VISIBLE_DEVICES` to `all`. Keep the port at `11434`.
+3. **Download a model.** Open the Unraid Terminal and run:
+   ```bash
+   docker exec ollama ollama pull qwen3:8b
+   ```
+   Pick a model that fits your GPU memory and supports tools:
+
+   | GPU memory | Model |
+   |---|---|
+   | No GPU / under 6 GB | `qwen3:4b` (slow on CPU) |
+   | 8 GB | `qwen3:8b` (default) |
+   | 12–16 GB | `qwen3:14b` |
+   | 24 GB+ | `qwen3:32b` |
+
+4. When you set up Ada below, put `http://<your-unraid-ip>:11434` in **Ollama URL** and the model name in **Ollama model**, and leave the Claude key empty.
 
 ## Install on Unraid
 
@@ -27,7 +58,7 @@ The Docker image is built automatically by GitHub Actions and published to `ghcr
      https://raw.githubusercontent.com/stefanhoagland/ada-bot/main/unraid/ada.xml
    ```
    (If the repo is private, copy `unraid/ada.xml` there by hand instead.)
-3. In the Unraid web UI go to **Docker** → **Add Container**, pick **ada** from the Template list, fill in the three required fields, and click **Apply**.
+3. In the Unraid web UI go to **Docker** → **Add Container**, pick **ada** from the Template list, fill in the Telegram fields and either the Claude key or the Ollama URL and model, and click **Apply**.
 4. Open Telegram, find your bot, and send `/start`.
 
 ### What the folders do
@@ -44,7 +75,11 @@ Ada can only see the folders you map. Remove a mapping to take that access away.
 
 | Variable | Default | What it does |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | (required) | Claude API key |
+| `ANTHROPIC_API_KEY` | (empty) | Claude API key. Leave empty to use Ollama |
+| `ADA_PROVIDER` | auto | `claude` or `ollama` |
+| `OLLAMA_URL` | `http://localhost:11434` | Where Ollama is running |
+| `OLLAMA_MODEL` | `qwen3:8b` | Local model (must support tools) |
+| `OLLAMA_NUM_CTX` | `16384` | How much conversation the local model can see. Higher needs more GPU memory |
 | `TELEGRAM_BOT_TOKEN` | (required) | Bot token from @BotFather |
 | `TELEGRAM_ALLOWED_USER_IDS` | (required) | Comma-separated Telegram user IDs allowed to use Ada |
 | `TZ` | `America/New_York` | Time zone |
@@ -79,5 +114,6 @@ python -m ada
 ## Roadmap
 
 1. ✅ Core: Claude, shell and file tools, approval gate, Telegram, Docker
+1. ✅ Free local model option through Ollama
 2. Homelab skills: health checks, Unraid array status, update checks
 3. Reminders from your Outlook calendar

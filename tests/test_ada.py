@@ -145,3 +145,86 @@ def test_brain_rolls_back_on_refusal(tmp_path):
     reply = asyncio.run(brain.respond(convo, "bad", never, note))
     assert "can't help" in reply
     assert convo.messages == []
+
+
+# ---- Ollama backend -----------------------------------------------------
+
+import json as _json
+
+import httpx
+import pytest
+
+from ada.brain import BrainError
+from ada.ollama_brain import OllamaBrain
+
+
+def _ollama(tmp_path, handler):
+    c = cfg(tmp_path)
+    c.provider = "ollama"
+    http = httpx.AsyncClient(base_url="http://ollama", transport=httpx.MockTransport(handler))
+    return OllamaBrain(c, http=http)
+
+
+def test_ollama_tool_loop_with_approval(tmp_path):
+    target = tmp_path / "x.txt"
+    sent = []
+    replies = [
+        {"message": {"role": "assistant", "content": "", "tool_calls": [
+            {"function": {"name": "run_command", "arguments": {"command": "echo hi", "reason": "test"}}},
+            {"function": {"name": "write_file", "arguments": _json.dumps({"path": str(target), "content": "ok", "reason": "save"})}},
+        ]}},
+        {"message": {"role": "assistant", "content": "Wrote it."}},
+    ]
+
+    def handler(request):
+        body = _json.loads(request.content)
+        sent.append(body)
+        assert body["model"] == "qwen3:8b" and body["tools"][0]["type"] == "function"
+        return httpx.Response(200, json=replies.pop(0))
+
+    brain = _ollama(tmp_path, handler)
+    asked = []
+
+    async def approve(req):
+        asked.append(req.name)
+        return True
+
+    async def note(n):
+        pass
+
+    convo = Conversation()
+    reply = asyncio.run(brain.respond(convo, "hi", approve, note))
+    assert reply == "Wrote it."
+    assert asked == ["run_command", "write_file"]  # echo isn't on the safe list
+    assert target.read_text() == "ok"
+    tool_msgs = [m for m in sent[1]["messages"] if m["role"] == "tool"]
+    assert [m["tool_name"] for m in tool_msgs] == ["run_command", "write_file"]
+    assert "hi" in tool_msgs[0]["content"]
+
+
+def test_ollama_missing_model_is_friendly(tmp_path):
+    brain = _ollama(tmp_path, lambda r: httpx.Response(404, json={"error": "model not found"}))
+    convo = Conversation()
+
+    async def go():
+        async def a(r):
+            return True
+        async def n(x):
+            pass
+        await brain.respond(convo, "hi", a, n)
+
+    with pytest.raises(BrainError, match="ollama pull qwen3:8b"):
+        asyncio.run(go())
+    assert convo.messages == []
+
+
+def test_provider_defaults(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "t")
+    monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "1")
+    monkeypatch.delenv("ADA_PROVIDER", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    assert Config.from_env().provider == "ollama"
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    assert Config.from_env().provider == "claude"
+    monkeypatch.setenv("ADA_PROVIDER", "ollama")
+    assert Config.from_env().provider == "ollama"

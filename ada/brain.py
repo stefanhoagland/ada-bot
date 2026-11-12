@@ -57,10 +57,20 @@ class Conversation:
         self.messages.clear()
 
 
-class Brain:
-    def __init__(self, config: Config, client: anthropic.AsyncAnthropic | None = None):
+class BrainError(Exception):
+    """An error with a message that's safe and useful to show the user."""
+
+
+class BaseBrain:
+    """Shared pieces for every model backend: time stamps and the approval-gated tool runner."""
+
+    def __init__(self, config: Config):
         self.config = config
-        self.client = client or anthropic.AsyncAnthropic()
+
+    async def respond(
+        self, convo: Conversation, user_text: str, approve: Approver, notify: Notifier
+    ) -> str:
+        raise NotImplementedError
 
     def _now_note(self) -> str:
         try:
@@ -68,6 +78,27 @@ class Brain:
         except Exception:
             now = datetime.now().astimezone()
         return now.strftime("[%A %Y-%m-%d %H:%M %Z]")
+
+    async def _run_tool(
+        self, req: ToolRequest, approve: Approver, notify: Notifier
+    ) -> tuple[str, bool]:
+        """Ask for approval if needed, then run the tool. Returns (output, is_error)."""
+        if req.needs_approval(self.config.safe_commands):
+            if not await approve(req):
+                return "The user denied this action (or didn't answer in time). It was not run.", True
+        elif req.name == "run_command":
+            await notify(f"Running: {req.input.get('command', '')}")
+        output, is_error = await execute(req, self.config.workdir, self.config.command_timeout_s)
+        log.info("tool %s error=%s", req.name, is_error)
+        return output, is_error
+
+
+class ClaudeBrain(BaseBrain):
+    """Uses the Claude API."""
+
+    def __init__(self, config: Config, client: anthropic.AsyncAnthropic | None = None):
+        super().__init__(config)
+        self.client = client or anthropic.AsyncAnthropic()
 
     async def _call(self, messages: list):
         return await self.client.beta.messages.create(
@@ -119,7 +150,14 @@ class Brain:
 
                 results = []
                 for block in tool_uses:
-                    results.append(await self._run_tool(block, approve, notify))
+                    req = ToolRequest(name=block.name, input=dict(block.input or {}))
+                    output, is_error = await self._run_tool(req, approve, notify)
+                    results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": output,
+                        "is_error": is_error,
+                    })
                 convo.messages.append({"role": "user", "content": results})
 
             return "I stopped after a lot of steps without finishing. Tell me how you'd like to continue."
@@ -128,27 +166,15 @@ class Brain:
             del convo.messages[start_len:]
             raise
 
-    async def _run_tool(self, block, approve: Approver, notify: Notifier) -> dict:
-        req = ToolRequest(name=block.name, input=dict(block.input or {}))
-        if req.needs_approval(self.config.safe_commands):
-            approved = await approve(req)
-            if not approved:
-                return {
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": "The user denied this action (or didn't answer in time). It was not run.",
-                    "is_error": True,
-                }
-        elif req.name == "run_command":
-            await notify(f"Running: {req.input.get('command', '')}")
 
-        output, is_error = await execute(
-            req, self.config.workdir, self.config.command_timeout_s
-        )
-        log.info("tool %s error=%s", req.name, is_error)
-        return {
-            "type": "tool_result",
-            "tool_use_id": block.id,
-            "content": output,
-            "is_error": is_error,
-        }
+# Kept for backwards compatibility.
+Brain = ClaudeBrain
+
+
+def make_brain(config: Config) -> BaseBrain:
+    """Pick the model backend from the config."""
+    if config.provider == "ollama":
+        from .ollama_brain import OllamaBrain
+
+        return OllamaBrain(config)
+    return ClaudeBrain(config)

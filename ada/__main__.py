@@ -16,8 +16,10 @@ def main() -> None:
     logging.getLogger("httpx2").setLevel(logging.WARNING)
     config = Config.from_env()
     logging.getLogger("ada").info(
-        "Ada starting (model=%s, effort=%s, allowed users=%s)",
-        config.model, config.effort, sorted(config.allowed_user_ids),
+        "Ada starting (brain=%s, allowed users=%s)",
+        f"ollama {config.ollama_model} at {config.ollama_url}" if config.provider == "ollama"
+        else f"claude {config.model} effort={config.effort}",
+        sorted(config.allowed_user_ids),
     )
     AdaBot(config).build().run_polling()
 

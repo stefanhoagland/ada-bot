@@ -8,10 +8,13 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/stefanhoagland/ada-bot</Support>
   <Project>https://github.com/stefanhoagland/ada-bot</Project>
-  <Overview>Ada, a personal AI assistant you chat with on Telegram. She can check and manage your server, write code, and asks before changing anything.</Overview>
+  <Overview>Ada, a personal AI assistant (Claude API or a free local Ollama model) you chat with on Telegram. She can check and manage your server, write code, and asks before changing anything.</Overview>
   <Category>Tools:</Category>
   <ExtraParams>--restart=unless-stopped</ExtraParams>
-  <Config Name="Claude API key" Target="ANTHROPIC_API_KEY" Default="" Mode="" Description="From console.anthropic.com" Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Claude API key" Target="ANTHROPIC_API_KEY" Default="" Mode="" Description="Optional. From console.anthropic.com. Leave empty to use the free local model (Ollama)." Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="Ollama URL" Target="OLLAMA_URL" Default="http://192.168.1.10:11434" Mode="" Description="Address of your Ollama container: your Unraid server's IP, port 11434" Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="Ollama model" Target="OLLAMA_MODEL" Default="qwen3:8b" Mode="" Description="Local model to use. It must support tools (qwen3, llama3.1, mistral-nemo...)" Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="Brain" Target="ADA_PROVIDER" Default="" Mode="" Description="claude or ollama. Empty = Claude if an API key is set, otherwise Ollama" Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="Telegram bot token" Target="TELEGRAM_BOT_TOKEN" Default="" Mode="" Description="From @BotFather on Telegram" Type="Variable" Display="always" Required="true" Mask="true"/>
   <Config Name="Your Telegram user ID" Target="TELEGRAM_ALLOWED_USER_IDS" Default="" Mode="" Description="Only this user can talk to Ada. Get it from @userinfobot." Type="Variable" Display="always" Required="true" Mask="false"/>
   <Config Name="Time zone" Target="TZ" Default="America/New_York" Mode="" Description="" Type="Variable" Display="always" Required="false" Mask="false"/>

@@ -20,7 +20,7 @@ from telegram.ext import (
     filters,
 )
 
-from .brain import Brain, Conversation
+from .brain import BaseBrain, BrainError, Conversation, make_brain
 from .config import Config
 from .tools import ToolRequest
 
@@ -44,9 +44,9 @@ def split_message(text: str, limit: int = TELEGRAM_LIMIT) -> list[str]:
 
 
 class AdaBot:
-    def __init__(self, config: Config, brain: Brain | None = None):
+    def __init__(self, config: Config, brain: BaseBrain | None = None):
         self.config = config
-        self.brain = brain or Brain(config)
+        self.brain = brain or make_brain(config)
         self.convos: dict[int, Conversation] = {}
         self.locks: dict[int, asyncio.Lock] = {}
         self.pending: dict[str, asyncio.Future] = {}
@@ -112,6 +112,8 @@ class AdaBot:
                     approve=lambda req: self._ask_approval(context, chat_id, req),
                     notify=lambda note: self._send(context, chat_id, note),
                 )
+            except BrainError as e:
+                reply = str(e)
             except anthropic.AuthenticationError:
                 reply = "My Claude API key was rejected. Check ANTHROPIC_API_KEY in the container settings."
             except anthropic.RateLimitError:
@@ -121,6 +123,9 @@ class AdaBot:
                 reply = f"The Claude API returned an error ({e.status_code}). Try again shortly."
             except anthropic.APIConnectionError:
                 reply = "I couldn't reach the Claude API. Is the server online?"
+            except Exception:
+                log.exception("Unexpected error while answering")
+                reply = "Something went wrong on my side. Check my logs in Unraid for details."
             finally:
                 typing.cancel()
             await self._send(context, chat_id, reply)

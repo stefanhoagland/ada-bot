@@ -72,7 +72,13 @@ class Config:
                 "TELEGRAM_ALLOWED_USER_IDS is not set. Ada refuses to start without it, "
                 "so strangers can't control your server. Message @userinfobot on Telegram to get your ID."
             )
-        allowed = {int(x) for x in ids_raw.split(",") if x.strip()}
+        try:
+            allowed = {int(x) for x in ids_raw.split(",") if x.strip()}
+        except ValueError:
+            raise SystemExit(
+                f"TELEGRAM_ALLOWED_USER_IDS must be numeric Telegram IDs (got {ids_raw!r}). "
+                "It's a number like 123456789, not your username. Message @userinfobot on Telegram to get it."
+            )
         return cls(
             telegram_token=token,
             allowed_user_ids=allowed,

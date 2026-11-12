@@ -228,3 +228,10 @@ def test_provider_defaults(monkeypatch):
     assert Config.from_env().provider == "claude"
     monkeypatch.setenv("ADA_PROVIDER", "ollama")
     assert Config.from_env().provider == "ollama"
+
+
+def test_username_instead_of_id_gives_clear_error(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "t")
+    monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "stefanhoagland")
+    with pytest.raises(SystemExit, match="userinfobot"):
+        Config.from_env()

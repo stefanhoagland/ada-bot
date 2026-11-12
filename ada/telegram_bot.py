@@ -10,6 +10,7 @@ import logging
 import anthropic
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatAction, ParseMode
+from telegram.error import NetworkError, TimedOut
 from telegram.ext import (
     Application,
     ApplicationBuilder,
@@ -197,10 +198,29 @@ class AdaBot:
         except Exception:
             await query.edit_message_reply_markup(reply_markup=None)
 
+    async def on_error(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        err = context.error
+        if isinstance(err, (NetworkError, TimedOut)):
+            log.warning("Telegram network hiccup (will retry): %s", err)
+        else:
+            log.error("Unhandled error", exc_info=err)
+
     # ---- wiring --------------------------------------------------------
 
     def build(self) -> Application:
-        app = ApplicationBuilder().token(self.config.telegram_token).build()
+        app = (
+            ApplicationBuilder()
+            .token(self.config.telegram_token)
+            # Be patient with slow or flaky home connections.
+            .connect_timeout(20)
+            .read_timeout(30)
+            .write_timeout(30)
+            .pool_timeout(10)
+            .get_updates_connect_timeout(20)
+            .get_updates_read_timeout(60)
+            .build()
+        )
+        app.add_error_handler(self.on_error)
         app.add_handler(CommandHandler("start", self.on_start))
         app.add_handler(CommandHandler("help", self.on_start))
         app.add_handler(CommandHandler("new", self.on_new))

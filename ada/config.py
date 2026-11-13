@@ -53,6 +53,8 @@ class Config:
     ollama_model: str = "qwen3:8b"
     ollama_num_ctx: int = 16384
     ollama_timeout_s: int = 600
+    ollama_think: bool = False
+    ollama_keep_alive: str = "30m"
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -95,4 +97,6 @@ class Config:
             ollama_model=os.environ.get("OLLAMA_MODEL", "qwen3:8b"),
             ollama_num_ctx=int(os.environ.get("OLLAMA_NUM_CTX", "16384")),
             ollama_timeout_s=int(os.environ.get("OLLAMA_TIMEOUT", "600")),
+            ollama_think=os.environ.get("OLLAMA_THINK", "false").strip().lower() in ("1", "true", "yes", "on"),
+            ollama_keep_alive=os.environ.get("OLLAMA_KEEP_ALIVE", "30m"),
         )

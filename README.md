@@ -40,11 +40,14 @@ Skip this if you're using Claude.
    | GPU memory | Model |
    |---|---|
    | No GPU / under 6 GB | `qwen3:4b` (slow on CPU) |
-   | 8 GB | `qwen3:8b` (default) |
+   | 5–6 GB (e.g. Quadro P2000) | `qwen3:4b` with `OLLAMA_NUM_CTX=8192` |
+| 8 GB | `qwen3:8b` (default) |
    | 12–16 GB | `qwen3:14b` |
    | 24 GB+ | `qwen3:32b` |
 
-4. When you set up Ada below, put `http://<your-unraid-ip>:11434` in **Ollama URL** and the model name in **Ollama model**, and leave the Claude key empty.
+   **Older NVIDIA cards (GTX 10-series, Quadro P-series, Tesla P40 and other Pascal/Maxwell cards):** newer Ollama releases no longer include the CUDA 12 engine these cards need, so Ollama silently falls back to the CPU. Pin the Ollama container's Repository to `ollama/ollama:0.32.14`, which still includes it. The startup log should then show `library=CUDA` with your card's name (`docker logs ollama 2>&1 | grep "inference compute"`).
+4. **Check it's using the GPU.** While Ada is answering, run `docker exec ollama ollama ps`. The PROCESSOR column should say `100% GPU`. If it says CPU, the GPU isn't passed through or the model is too big for it: pick a smaller model.
+5. When you set up Ada below, put `http://<your-unraid-ip>:11434` in **Ollama URL** and the model name in **Ollama model**, and leave the Claude key empty.
 
 ## Install on Unraid
 
@@ -79,6 +82,8 @@ Ada can only see the folders you map. Remove a mapping to take that access away.
 | `ADA_PROVIDER` | auto | `claude` or `ollama` |
 | `OLLAMA_URL` | `http://localhost:11434` | Where Ollama is running |
 | `OLLAMA_MODEL` | `qwen3:8b` | Local model (must support tools) |
+| `OLLAMA_THINK` | `false` | Let thinking models (qwen3) reason before answering: smarter, much slower |
+| `OLLAMA_KEEP_ALIVE` | `30m` | How long the model stays loaded after a message (`-1` = always) |
 | `OLLAMA_NUM_CTX` | `16384` | How much conversation the local model can see. Higher needs more GPU memory |
 | `TELEGRAM_BOT_TOKEN` | (required) | Bot token from @BotFather |
 | `TELEGRAM_ALLOWED_USER_IDS` | (required) | Comma-separated Telegram user IDs allowed to use Ada |
